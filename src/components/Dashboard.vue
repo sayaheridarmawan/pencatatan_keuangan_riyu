@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import Mascot from './Mascot.vue'
-import { db, rupiah, nama, tglIndo, today } from '../store'
+import { db, rupiah, nama, tglIndo, today, terkumpul } from '../store'
 
 const bulan = ref(today().slice(0, 7))
 const sum = (rows, tipe) => rows.filter((t) => t.tipe === tipe).reduce((s, t) => s + Number(t.jumlah), 0)
@@ -9,10 +9,12 @@ const rows = computed(() => db.transaksi.filter((t) => t.tanggal.startsWith(bula
 const masuk = computed(() => sum(rows.value, 'pemasukan'))
 const keluar = computed(() => sum(rows.value, 'pengeluaran'))
 
+const jumlahTf = (key, id) => db.transfer.filter((x) => x[key] === id).reduce((s, x) => s + Number(x.jumlah), 0)
 const saldoAkun = computed(() =>
   db.akun.map((a) => {
     const t = db.transaksi.filter((x) => x.akun_id === a.id)
-    return { ...a, saldo: Number(a.saldo_awal) + sum(t, 'pemasukan') - sum(t, 'pengeluaran') }
+    const saldo = Number(a.saldo_awal) + sum(t, 'pemasukan') - sum(t, 'pengeluaran') + jumlahTf('akun_tujuan_id', a.id) - jumlahTf('akun_asal_id', a.id)
+    return { ...a, saldo }
   })
 )
 const sapa = computed(() => {
@@ -60,6 +62,15 @@ const perKategori = computed(() => {
         <div class="row"><span>{{ nama(db.kategori, k.id) }}</span><b>{{ rupiah(k.v) }}</b></div>
         <div class="track"><i :style="{ width: k.pct + '%' }"></i></div>
       </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Target tabungan</h3>
+    <p v-if="!db.target.length" class="mute">Belum ada target. Buat di tab Tabungan.</p>
+    <div v-for="g in db.target" :key="g.id" class="bar-item">
+      <div class="row"><span>{{ g.nama }}</span><b>{{ rupiah(terkumpul(g.id)) }} / {{ rupiah(g.target_jumlah) }}</b></div>
+      <div class="track"><i class="goal" :style="{ width: Math.min(100, (terkumpul(g.id) / g.target_jumlah) * 100) + '%' }"></i></div>
     </div>
   </div>
 

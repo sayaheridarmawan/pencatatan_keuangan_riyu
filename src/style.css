@@ -62,3 +62,4 @@ label{display:flex;flex-direction:column;gap:.25rem;font-size:.85rem;color:var(-
   .hero{padding:1.1rem}.riyu{width:100%;justify-content:flex-end}.bubble{margin-bottom:1.2rem}
   .toolbar input,.toolbar select{flex:1}
 }
+.track i.goal{background:var(--in)}

@@ -6,6 +6,7 @@ import Mascot from './components/Mascot.vue'
 import Dashboard from './components/Dashboard.vue'
 import Transaksi from './components/Transaksi.vue'
 import Master from './components/Master.vue'
+import Tabungan from './components/Tabungan.vue'
 
 const session = ref(null)
 const ready = ref(false)
@@ -14,6 +15,7 @@ const tab = ref('ringkasan')
 const tabs = [
   ['ringkasan', 'Ringkasan', 'M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z'],
   ['transaksi', 'Transaksi', 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01'],
+  ['tabungan', 'Tabungan', 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z'],
   ['master', 'Master', 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6'],
 ]
 const email = ref(''), password = ref(''), mode = ref('masuk'), msg = ref(''), busy = ref(false)
@@ -95,6 +97,7 @@ const keluar = () => supabase.auth.signOut()
       <p v-if="db.loading && !db.transaksi.length" class="mute">Riyu sedang menghitung…</p>
       <Dashboard v-if="tab === 'ringkasan'" />
       <Transaksi v-else-if="tab === 'transaksi'" />
+      <Tabungan v-else-if="tab === 'tabungan'" />
       <Master v-else />
     </main>
   </template>
