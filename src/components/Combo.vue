@@ -5,6 +5,7 @@ const props = defineProps({
   modelValue: { type: String, default: '' },
   options: { type: Array, default: () => [] }, // [{ id, nama }]
   label: { type: String, default: '' },
+  clearable: { type: Boolean, default: true },
   placeholder: { type: String, default: 'Cari…' },
 })
 const emit = defineEmits(['update:modelValue'])
@@ -52,10 +53,10 @@ function tombol(e) {
       <input
         ref="el" type="text" role="combobox" autocomplete="off" autocapitalize="off" spellcheck="false"
         :aria-expanded="buka" :aria-controls="uid" aria-autocomplete="list"
-        :placeholder="placeholder" :value="tampil"
+        :placeholder="placeholder" :value="tampil" :aria-label="label || placeholder" maxlength="60"
         @focus="fokus" @input="ketik" @keydown="tombol" @blur="tutup"
       />
-      <button v-if="modelValue && !buka" type="button" class="combo-x" aria-label="Kosongkan pilihan" @mousedown.prevent="kosongkan">×</button>
+      <button v-if="clearable && modelValue && !buka" type="button" class="combo-x" aria-label="Kosongkan pilihan" @mousedown.prevent="kosongkan">×</button>
       <ul v-if="buka" :id="uid" class="combo-list" role="listbox">
         <li
           v-for="(o, i) in hasil" :id="`${uid}-${i}`" :key="o.id" role="option"

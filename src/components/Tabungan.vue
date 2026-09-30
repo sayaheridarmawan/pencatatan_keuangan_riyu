@@ -1,6 +1,8 @@
 <script setup>
 import { ref, reactive, computed } from 'vue'
 import { supabase } from '../supabase'
+import Combo from './Combo.vue'
+import RupiahInput from './RupiahInput.vue'
 import { db, loadAll, safe, rupiah, nama, tglIndo, today, terkumpul, saldoAkunId } from '../store'
 
 const mode = ref('pindah') // 'pindah' = antar akun, 'sisih' = sisihkan ke target di akun yang sama
@@ -8,6 +10,8 @@ const err = ref(''), gErr = ref(''), saving = ref(false)
 const t = reactive({ tanggal: today(), jumlah: '', asal: '', tujuan: '', target_id: '', catatan: '' })
 const g = reactive({ nama: '', target_jumlah: '', tenggat: '' })
 const pct = (x) => Math.min(100, (terkumpul(x.id) / x.target_jumlah) * 100)
+const opsiAsal = computed(() => db.akun.map((a) => ({ id: a.id, nama: `${a.nama} · ${rupiah(saldoAkunId(a.id))}` })))
+const opsiTujuan = computed(() => db.akun.filter((a) => a.id !== t.asal))
 const saldoAsal = computed(() => (t.asal ? saldoAkunId(t.asal) : null))
 const setMode = (m) => { mode.value = m; err.value = ''; t.tujuan = '' }
 
@@ -65,8 +69,8 @@ const label = (x) =>
       <div class="track"><i class="goal" :style="{ width: pct(x) + '%' }"></i></div>
     </div>
     <div class="fields">
-      <label>Nama target<input v-model="g.nama" /></label>
-      <label>Nominal (Rp)<input type="number" min="1" inputmode="numeric" v-model="g.target_jumlah" /></label>
+      <label>Nama target<input v-model="g.nama" maxlength="60" /></label>
+      <RupiahInput v-model="g.target_jumlah" label="Nominal target" />
       <label>Tenggat (opsional)<input type="date" v-model="g.tenggat" /></label>
     </div>
     <p v-if="gErr" class="err" role="alert">{{ gErr }}</p>
@@ -85,17 +89,11 @@ const label = (x) =>
     <p v-if="db.akun.length < (mode === 'pindah' ? 2 : 1)" class="note">Buat akun di Master data terlebih dahulu{{ mode === 'pindah' ? ' (minimal dua akun)' : '' }}.</p>
     <div class="fields">
       <label>Tanggal<input type="date" v-model="t.tanggal" /></label>
-      <label>Jumlah (Rp)<input type="number" min="1" inputmode="numeric" v-model="t.jumlah" /></label>
-      <label>{{ mode === 'pindah' ? 'Dari akun' : 'Akun sumber' }}
-        <select v-model="t.asal"><option value="" disabled>Pilih…</option><option v-for="a in db.akun" :key="a.id" :value="a.id">{{ a.nama }} · {{ rupiah(saldoAkunId(a.id)) }}</option></select>
-      </label>
-      <label v-if="mode === 'pindah'">Ke akun
-        <select v-model="t.tujuan"><option value="" disabled>Pilih…</option><option v-for="a in db.akun" :key="a.id" :value="a.id">{{ a.nama }}</option></select>
-      </label>
-      <label>{{ mode === 'sisih' ? 'Untuk target' : 'Untuk target (opsional)' }}
-        <select v-model="t.target_id"><option value="">{{ mode === 'sisih' ? 'Pilih…' : 'Tanpa target' }}</option><option v-for="x in db.target" :key="x.id" :value="x.id">{{ x.nama }}</option></select>
-      </label>
-      <label>Catatan<input v-model="t.catatan" placeholder="Opsional" /></label>
+      <RupiahInput v-model="t.jumlah" label="Jumlah" />
+      <Combo v-model="t.asal" :options="opsiAsal" :label="mode === 'pindah' ? 'Dari akun' : 'Akun sumber'" placeholder="Cari akun…" :clearable="false" />
+      <Combo v-if="mode === 'pindah'" v-model="t.tujuan" :options="opsiTujuan" label="Ke akun" placeholder="Cari akun…" :clearable="false" />
+      <Combo v-model="t.target_id" :options="db.target" :label="mode === 'sisih' ? 'Untuk target' : 'Untuk target (opsional)'" :placeholder="mode === 'sisih' ? 'Pilih target…' : 'Tanpa target'" />
+      <label>Catatan<input v-model="t.catatan" placeholder="Opsional" maxlength="200" /></label>
     </div>
     <p v-if="saldoAsal !== null" class="mute small">Saldo tersedia: <b>{{ rupiah(saldoAsal) }}</b></p>
     <p v-if="err" class="err" role="alert">{{ err }}</p>

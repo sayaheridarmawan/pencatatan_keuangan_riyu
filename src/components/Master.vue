@@ -1,6 +1,8 @@
 <script setup>
 import { ref, reactive, computed } from 'vue'
 import { supabase } from '../supabase'
+import Combo from './Combo.vue'
+import RupiahInput from './RupiahInput.vue'
 import { db, loadAll, safe, rupiah } from '../store'
 
 const tabs = { akun: 'Akun / dompet', kategori: 'Kategori', anggota: 'Anggota keluarga' }
@@ -8,6 +10,7 @@ const cur = ref('akun')
 const editId = ref(null), err = ref('')
 const f = reactive({ nama: '', saldo_awal: 0, tipe: 'pengeluaran' })
 const list = computed(() => db[cur.value])
+const opsiTipe = [{ id: 'pengeluaran', nama: 'Pengeluaran' }, { id: 'pemasukan', nama: 'Pemasukan' }]
 
 function reset() { Object.assign(f, { nama: '', saldo_awal: 0, tipe: 'pengeluaran' }); editId.value = null; err.value = '' }
 function pilih(t) { cur.value = t; reset() }
@@ -52,9 +55,9 @@ async function contoh() {
   </div>
   <div class="card form">
     <div class="fields">
-      <label>Nama<input v-model="f.nama" @keyup.enter="simpan" /></label>
-      <label v-if="cur === 'akun'">Saldo awal (Rp)<input type="number" v-model="f.saldo_awal" /></label>
-      <label v-if="cur === 'kategori'">Jenis<select v-model="f.tipe"><option value="pengeluaran">Pengeluaran</option><option value="pemasukan">Pemasukan</option></select></label>
+      <label>Nama<input v-model="f.nama" maxlength="60" @keyup.enter="simpan" /></label>
+      <RupiahInput v-if="cur === 'akun'" v-model="f.saldo_awal" label="Saldo awal" />
+      <Combo v-if="cur === 'kategori'" v-model="f.tipe" :options="opsiTipe" label="Jenis" placeholder="Pilih jenis…" :clearable="false" />
     </div>
     <p v-if="err" class="err">{{ err }}</p>
     <div class="actions">

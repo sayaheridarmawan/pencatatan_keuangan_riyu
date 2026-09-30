@@ -60,6 +60,10 @@ export async function loadAll() {
   db.loading = false
 }
 
+export function bersihkan() {
+  Object.assign(db, { akun: [], kategori: [], anggota: [], transaksi: [], target: [], transfer: [] })
+}
+
 export const rupiah = (n) =>
   new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n || 0)
 export const terkumpul = (id) => db.transfer.filter((x) => x.target_id === id).reduce((s, x) => s + Number(x.jumlah), 0)

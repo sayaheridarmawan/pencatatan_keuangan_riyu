@@ -2,6 +2,7 @@
 import { ref, reactive, computed } from 'vue'
 import { supabase } from '../supabase'
 import Combo from './Combo.vue'
+import RupiahInput from './RupiahInput.vue'
 import { db, loadAll, safe, rupiah, nama, tglIndo, today } from '../store'
 
 const bulan = ref(today().slice(0, 7))
@@ -18,6 +19,7 @@ const kats = computed(() => {
     .filter((k) => k.tipe === f.tipe)
     .sort((a, b) => (pakai[b.id] || 0) - (pakai[a.id] || 0) || a.nama.localeCompare(b.nama))
 })
+const opsiTipe = [{ id: 'pemasukan', nama: 'Pemasukan' }, { id: 'pengeluaran', nama: 'Pengeluaran' }]
 const rows = computed(() =>
   db.transaksi.filter((t) => t.tanggal.startsWith(bulan.value) && (!filterTipe.value || t.tipe === filterTipe.value))
 )
@@ -63,9 +65,7 @@ async function hapus(t) {
 <template>
   <div class="toolbar">
     <input type="month" v-model="bulan" aria-label="Bulan" />
-    <select v-model="filterTipe" aria-label="Jenis">
-      <option value="">Semua</option><option value="pemasukan">Pemasukan</option><option value="pengeluaran">Pengeluaran</option>
-    </select>
+    <Combo v-model="filterTipe" :options="opsiTipe" placeholder="Semua jenis" />
     <span class="grow"></span>
     <button class="btn primary" @click="baru" :disabled="!db.akun.length || !db.kategori.length">Tambah transaksi</button>
   </div>
@@ -79,15 +79,15 @@ async function hapus(t) {
     </div>
     <div class="fields">
       <label>Tanggal<input type="date" v-model="f.tanggal" /></label>
-      <label>Jumlah (Rp)<input type="number" min="1" inputmode="numeric" v-model="f.jumlah" /></label>
-      <label>Akun<select v-model="f.akun_id"><option v-for="a in db.akun" :key="a.id" :value="a.id">{{ a.nama }}</option></select></label>
+      <RupiahInput v-model="f.jumlah" label="Jumlah" />
+      <Combo v-model="f.akun_id" :options="db.akun" label="Akun" placeholder="Cari akun…" :clearable="false" />
       <Combo v-model="f.kategori_id" :options="kats" label="Kategori" placeholder="Ketik untuk mencari…" />
-      <label>Anggota<select v-model="f.anggota_id"><option value="">Tidak ditentukan</option><option v-for="m in db.anggota" :key="m.id" :value="m.id">{{ m.nama }}</option></select></label>
-      <label>Catatan<input v-model="f.catatan" placeholder="Opsional" /></label>
+      <Combo v-model="f.anggota_id" :options="db.anggota" label="Anggota" placeholder="Tidak ditentukan" />
+      <label>Catatan<input v-model="f.catatan" placeholder="Opsional" maxlength="200" /></label>
     </div>
     <div v-if="f.tipe === 'pemasukan' && !editId && db.target.length" class="fields">
-      <label>Sisihkan ke target (opsional)<select v-model="sisih.target_id"><option value="">Tidak</option><option v-for="x in db.target" :key="x.id" :value="x.id">{{ x.nama }}</option></select></label>
-      <label v-if="sisih.target_id">Jumlah disisihkan (Rp)<input type="number" min="1" inputmode="numeric" v-model="sisih.jumlah" /></label>
+      <Combo v-model="sisih.target_id" :options="db.target" label="Sisihkan ke target (opsional)" placeholder="Tidak" />
+      <RupiahInput v-if="sisih.target_id" v-model="sisih.jumlah" label="Jumlah disisihkan" />
     </div>
     <p v-if="err" class="err">{{ err }}</p>
     <div class="actions"><button class="btn" @click="open = false">Batal</button><button class="btn primary" :disabled="saving" @click="simpan">{{ saving ? 'Menyimpan…' : 'Simpan' }}</button></div>
