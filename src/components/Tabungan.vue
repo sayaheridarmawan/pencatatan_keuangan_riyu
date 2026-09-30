@@ -1,27 +1,38 @@
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { supabase } from '../supabase'
-import { db, loadAll, safe, rupiah, nama, tglIndo, today, terkumpul } from '../store'
+import { db, loadAll, safe, rupiah, nama, tglIndo, today, terkumpul, saldoAkunId } from '../store'
 
+const mode = ref('pindah') // 'pindah' = antar akun, 'sisih' = sisihkan ke target di akun yang sama
 const err = ref(''), gErr = ref(''), saving = ref(false)
 const t = reactive({ tanggal: today(), jumlah: '', asal: '', tujuan: '', target_id: '', catatan: '' })
 const g = reactive({ nama: '', target_jumlah: '', tenggat: '' })
 const pct = (x) => Math.min(100, (terkumpul(x.id) / x.target_jumlah) * 100)
+const saldoAsal = computed(() => (t.asal ? saldoAkunId(t.asal) : null))
+const setMode = (m) => { mode.value = m; err.value = ''; t.tujuan = '' }
 
 async function simpanTransfer() {
-  if (!(t.jumlah > 0) || !t.asal || !t.tujuan) { err.value = 'Isi jumlah, akun asal, dan akun tujuan.'; return }
-  if (t.asal === t.tujuan) { err.value = 'Akun asal dan tujuan tidak boleh sama.'; return }
+  const jumlah = Number(t.jumlah)
+  const sisih = mode.value === 'sisih'
+  if (!(jumlah > 0) || !t.asal) { err.value = 'Isi jumlah dan akun sumber.'; return }
+  if (sisih && !t.target_id) { err.value = 'Pilih target yang akan diisi.'; return }
+  if (!sisih && !t.tujuan) { err.value = 'Pilih akun tujuan.'; return }
+  if (!sisih && t.asal === t.tujuan) { err.value = 'Akun sumber dan tujuan tidak boleh sama.'; return }
+  if (jumlah > saldoAsal.value) {
+    err.value = `Saldo ${nama(db.akun, t.asal)} hanya ${rupiah(saldoAsal.value)}, tidak cukup untuk ${rupiah(jumlah)}.`
+    return
+  }
   err.value = ''; saving.value = true
   const ok = await safe(() => supabase.from('transfer').insert({
-    tanggal: t.tanggal, jumlah: Number(t.jumlah), akun_asal_id: t.asal, akun_tujuan_id: t.tujuan,
+    tanggal: t.tanggal, jumlah, akun_asal_id: t.asal, akun_tujuan_id: sisih ? t.asal : t.tujuan,
     target_id: t.target_id || null, catatan: t.catatan || null,
-  }), 'Transfer tersimpan')
+  }), sisih ? 'Dana disisihkan ke target' : 'Transfer tersimpan')
   saving.value = false
   if (ok) { Object.assign(t, { jumlah: '', catatan: '', target_id: '' }); await loadAll() }
 }
 async function hapusTransfer(x) {
-  if (!confirm('Hapus transfer ini?')) return
-  if (await safe(() => supabase.from('transfer').delete().eq('id', x.id), 'Transfer dihapus')) await loadAll()
+  if (!confirm('Hapus catatan ini?')) return
+  if (await safe(() => supabase.from('transfer').delete().eq('id', x.id), 'Catatan dihapus')) await loadAll()
 }
 async function simpanTarget() {
   if (!g.nama.trim() || !(g.target_jumlah > 0)) { gErr.value = 'Isi nama dan nominal target.'; return }
@@ -35,6 +46,10 @@ async function hapusTarget(x) {
   if (!confirm(`Hapus target "${x.nama}"? Riwayat transfer tetap ada.`)) return
   if (await safe(() => supabase.from('target').delete().eq('id', x.id), 'Target dihapus')) await loadAll()
 }
+const label = (x) =>
+  x.akun_asal_id === x.akun_tujuan_id
+    ? `Disisihkan di ${nama(db.akun, x.akun_asal_id)}`
+    : `${nama(db.akun, x.akun_asal_id)} → ${nama(db.akun, x.akun_tujuan_id)}`
 </script>
 
 <template>
@@ -59,27 +74,40 @@ async function hapusTarget(x) {
   </div>
 
   <div class="card form">
-    <h3>Transfer / menabung</h3>
-    <p class="mute small">Pindahkan uang antar akun. Transfer tidak dihitung sebagai pemasukan maupun pengeluaran.</p>
-    <p v-if="db.akun.length < 2" class="note">Buat minimal dua akun (misalnya "Tabungan") di Master data terlebih dahulu.</p>
+    <h3>Transfer dan alokasi dana</h3>
+    <div class="seg">
+      <button :class="{ on: mode === 'pindah' }" @click="setMode('pindah')">Pindah antar akun</button>
+      <button :class="{ on: mode === 'sisih' }" @click="setMode('sisih')">Sisihkan ke target</button>
+    </div>
+    <p class="mute small">{{ mode === 'pindah'
+      ? 'Memindahkan uang dari satu akun ke akun lain. Tidak dihitung sebagai pemasukan atau pengeluaran.'
+      : 'Menandai sebagian saldo sebuah akun untuk target tanpa memindahkan uangnya. Cocok untuk pemasukan yang langsung ingin disisihkan.' }}</p>
+    <p v-if="db.akun.length < (mode === 'pindah' ? 2 : 1)" class="note">Buat akun di Master data terlebih dahulu{{ mode === 'pindah' ? ' (minimal dua akun)' : '' }}.</p>
     <div class="fields">
       <label>Tanggal<input type="date" v-model="t.tanggal" /></label>
       <label>Jumlah (Rp)<input type="number" min="1" inputmode="numeric" v-model="t.jumlah" /></label>
-      <label>Dari akun<select v-model="t.asal"><option value="" disabled>Pilih…</option><option v-for="a in db.akun" :key="a.id" :value="a.id">{{ a.nama }}</option></select></label>
-      <label>Ke akun<select v-model="t.tujuan"><option value="" disabled>Pilih…</option><option v-for="a in db.akun" :key="a.id" :value="a.id">{{ a.nama }}</option></select></label>
-      <label>Untuk target<select v-model="t.target_id"><option value="">Tanpa target</option><option v-for="x in db.target" :key="x.id" :value="x.id">{{ x.nama }}</option></select></label>
+      <label>{{ mode === 'pindah' ? 'Dari akun' : 'Akun sumber' }}
+        <select v-model="t.asal"><option value="" disabled>Pilih…</option><option v-for="a in db.akun" :key="a.id" :value="a.id">{{ a.nama }} · {{ rupiah(saldoAkunId(a.id)) }}</option></select>
+      </label>
+      <label v-if="mode === 'pindah'">Ke akun
+        <select v-model="t.tujuan"><option value="" disabled>Pilih…</option><option v-for="a in db.akun" :key="a.id" :value="a.id">{{ a.nama }}</option></select>
+      </label>
+      <label>{{ mode === 'sisih' ? 'Untuk target' : 'Untuk target (opsional)' }}
+        <select v-model="t.target_id"><option value="">{{ mode === 'sisih' ? 'Pilih…' : 'Tanpa target' }}</option><option v-for="x in db.target" :key="x.id" :value="x.id">{{ x.nama }}</option></select>
+      </label>
       <label>Catatan<input v-model="t.catatan" placeholder="Opsional" /></label>
     </div>
+    <p v-if="saldoAsal !== null" class="mute small">Saldo tersedia: <b>{{ rupiah(saldoAsal) }}</b></p>
     <p v-if="err" class="err" role="alert">{{ err }}</p>
-    <div class="actions"><button class="btn primary" :disabled="saving || db.akun.length < 2" @click="simpanTransfer">{{ saving ? 'Menyimpan…' : 'Simpan transfer' }}</button></div>
+    <div class="actions"><button class="btn primary" :disabled="saving" @click="simpanTransfer">{{ saving ? 'Menyimpan…' : 'Simpan' }}</button></div>
   </div>
 
   <div class="card">
-    <h3>Riwayat transfer</h3>
-    <p v-if="!db.transfer.length" class="mute">Belum ada transfer.</p>
+    <h3>Riwayat transfer dan alokasi</h3>
+    <p v-if="!db.transfer.length" class="mute">Belum ada catatan.</p>
     <div v-for="x in db.transfer" :key="x.id" class="tx">
       <div class="grow">
-        <b>{{ nama(db.akun, x.akun_asal_id) }} → {{ nama(db.akun, x.akun_tujuan_id) }}</b>
+        <b>{{ label(x) }}</b>
         <div class="mute small">{{ tglIndo(x.tanggal) }}<template v-if="x.target_id"> · {{ nama(db.target, x.target_id) }}</template><template v-if="x.catatan"> · {{ x.catatan }}</template></div>
       </div>
       <b>{{ rupiah(x.jumlah) }}</b>

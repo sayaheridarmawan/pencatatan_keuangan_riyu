@@ -7,6 +7,7 @@ import Dashboard from './components/Dashboard.vue'
 import Transaksi from './components/Transaksi.vue'
 import Master from './components/Master.vue'
 import Tabungan from './components/Tabungan.vue'
+import Sandi from './components/Sandi.vue'
 
 const session = ref(null)
 const ready = ref(false)
@@ -18,6 +19,9 @@ const tabs = [
   ['tabungan', 'Tabungan', 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z'],
   ['master', 'Master', 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6'],
 ]
+const sandi = ref(false)
+// Pendaftaran disembunyikan. Set VITE_ALLOW_SIGNUP=true jika suatu saat ingin menampilkannya.
+const bolehDaftar = import.meta.env.VITE_ALLOW_SIGNUP === 'true'
 const email = ref(''), password = ref(''), mode = ref('masuk'), msg = ref(''), busy = ref(false)
 
 onErrorCaptured((e) => { notify(pesanError(e), 'err'); return false })
@@ -73,7 +77,7 @@ const keluar = () => supabase.auth.signOut()
       <label>Kata sandi<input v-model="password" type="password" minlength="6" required :autocomplete="mode === 'masuk' ? 'current-password' : 'new-password'" /></label>
       <p v-if="msg" class="err" role="alert">{{ msg }}</p>
       <button class="btn primary" :disabled="busy || !online">{{ busy ? 'Tunggu ya…' : mode === 'masuk' ? 'Masuk' : 'Buat akun' }}</button>
-      <button type="button" class="link" @click="mode = mode === 'masuk' ? 'daftar' : 'masuk'; msg = ''">
+      <button v-if="bolehDaftar" type="button" class="link" @click="mode = mode === 'masuk' ? 'daftar' : 'masuk'; msg = ''">
         {{ mode === 'masuk' ? 'Belum punya akun? Daftar' : 'Sudah punya akun? Masuk' }}
       </button>
     </form>
@@ -89,7 +93,10 @@ const keluar = () => supabase.auth.signOut()
             <span>{{ l }}</span>
           </button>
         </nav>
-        <button class="link light" @click="keluar">Keluar</button>
+        <div class="akun-aksi">
+          <button class="link light" @click="sandi = true">Ganti sandi</button>
+          <button class="link light" @click="keluar">Keluar</button>
+        </div>
       </div>
     </header>
     <div v-if="!online" class="offline" role="status">Kamu sedang offline. Perubahan baru bisa disimpan setelah tersambung.</div>
@@ -101,6 +108,8 @@ const keluar = () => supabase.auth.signOut()
       <Master v-else />
     </main>
   </template>
+
+  <Sandi v-if="session && sandi" @tutup="sandi = false" />
 
   <div class="toasts" aria-live="polite">
     <div v-for="t in ui.toasts" :key="t.id" :class="['toast', t.type]">{{ t.text }}</div>

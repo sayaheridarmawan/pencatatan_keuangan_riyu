@@ -14,6 +14,9 @@ export function pesanError(e) {
   const raw = e?.message || String(e || '')
   const m = raw.toLowerCase()
   if (m.includes('failed to fetch') || m.includes('network') || m.includes('load failed')) return 'Koneksi internet bermasalah. Coba lagi.'
+  if (m.includes('different from the old')) return 'Kata sandi baru harus berbeda dari yang lama.'
+  if (m.includes('at least 6') || m.includes('password should be')) return 'Kata sandi minimal 6 karakter.'
+  if (m.includes('check constraint') && m.includes('transfer')) return 'Jalankan dulu file migrasi-alokasi-target.sql di Supabase.'
   if (m.includes('invalid login')) return 'Email atau kata sandi salah.'
   if (m.includes('already registered')) return 'Email sudah terdaftar. Silakan masuk.'
   if (m.includes('email not confirmed')) return 'Email belum dikonfirmasi.'
@@ -60,6 +63,17 @@ export async function loadAll() {
 export const rupiah = (n) =>
   new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n || 0)
 export const terkumpul = (id) => db.transfer.filter((x) => x.target_id === id).reduce((s, x) => s + Number(x.jumlah), 0)
+export const saldoAkunId = (id) => {
+  const a = db.akun.find((x) => x.id === id)
+  if (!a) return 0
+  let s = Number(a.saldo_awal)
+  db.transaksi.forEach((t) => { if (t.akun_id === id) s += (t.tipe === 'pemasukan' ? 1 : -1) * Number(t.jumlah) })
+  db.transfer.forEach((t) => {
+    if (t.akun_tujuan_id === id) s += Number(t.jumlah)
+    if (t.akun_asal_id === id) s -= Number(t.jumlah)
+  })
+  return s
+}
 export const nama = (list, id) => list.find((x) => x.id === id)?.nama ?? '-'
 export const today = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)
 export const tglIndo = (s) =>

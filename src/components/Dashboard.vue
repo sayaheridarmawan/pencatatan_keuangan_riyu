@@ -1,9 +1,12 @@
 <script setup>
 import { ref, computed } from 'vue'
 import Mascot from './Mascot.vue'
+import TargetDetail from './TargetDetail.vue'
 import { db, rupiah, nama, tglIndo, today, terkumpul } from '../store'
 
 const bulan = ref(today().slice(0, 7))
+const detailId = ref(null)
+const detail = computed(() => db.target.find((x) => x.id === detailId.value))
 const sum = (rows, tipe) => rows.filter((t) => t.tipe === tipe).reduce((s, t) => s + Number(t.jumlah), 0)
 const rows = computed(() => db.transaksi.filter((t) => t.tanggal.startsWith(bulan.value)))
 const masuk = computed(() => sum(rows.value, 'pemasukan'))
@@ -68,7 +71,8 @@ const perKategori = computed(() => {
   <div class="card">
     <h3>Target tabungan</h3>
     <p v-if="!db.target.length" class="mute">Belum ada target. Buat di tab Tabungan.</p>
-    <div v-for="g in db.target" :key="g.id" class="bar-item">
+    <p v-else class="mute small">Ketuk target untuk melihat sumber dananya.</p>
+    <div v-for="g in db.target" :key="g.id" class="bar-item klik" role="button" tabindex="0" @click="detailId = g.id" @keyup.enter="detailId = g.id">
       <div class="row"><span>{{ g.nama }}</span><b>{{ rupiah(terkumpul(g.id)) }} / {{ rupiah(g.target_jumlah) }}</b></div>
       <div class="track"><i class="goal" :style="{ width: Math.min(100, (terkumpul(g.id) / g.target_jumlah) * 100) + '%' }"></i></div>
     </div>
@@ -82,4 +86,5 @@ const perKategori = computed(() => {
       <b :class="t.tipe === 'pemasukan' ? 'in' : 'out'">{{ t.tipe === 'pemasukan' ? '+' : '−' }}{{ rupiah(t.jumlah) }}</b>
     </div>
   </div>
+  <TargetDetail v-if="detail" :target="detail" @tutup="detailId = null" />
 </template>
