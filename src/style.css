@@ -94,3 +94,7 @@ label{display:flex;flex-direction:column;gap:.25rem;font-size:.85rem;color:var(-
 .rp-box input{padding-left:2.7rem;font-variant-numeric:tabular-nums;font-weight:700}
 .toolbar .field{min-width:170px;flex:1}
 .toolbar .field input{width:100%}
+.lamp-box{display:flex;align-items:center;gap:.6rem;background:var(--bg);border:2px dashed var(--line);border-radius:14px;padding:.5rem .7rem}
+.lamp-thumb{width:52px;height:52px;border-radius:10px;object-fit:cover;flex:none}
+.lamp-thumb.pdf{display:grid;place-items:center;background:var(--line);color:var(--ink);font-weight:800;font-size:.8rem}
+.lamp-full{width:100%;height:auto;border-radius:14px;display:block;margin-bottom:.5rem}

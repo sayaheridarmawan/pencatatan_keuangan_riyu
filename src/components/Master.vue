@@ -3,7 +3,7 @@ import { ref, reactive, computed } from 'vue'
 import { supabase } from '../supabase'
 import Combo from './Combo.vue'
 import RupiahInput from './RupiahInput.vue'
-import { db, loadAll, safe, rupiah } from '../store'
+import { db, loadAll, safe, notify, rupiah } from '../store'
 
 const tabs = { akun: 'Akun / dompet', kategori: 'Kategori', anggota: 'Anggota keluarga' }
 const cur = ref('akun')
@@ -26,7 +26,21 @@ async function simpan() {
   const ok = await safe(() => (editId.value ? t.update(p).eq('id', editId.value) : t.insert(p)), 'Tersimpan')
   if (ok) { reset(); await loadAll() }
 }
+// Hitung pemakaian master di transaksi dan transfer
+function pakai(x) {
+  const k = cur.value
+  const kolom = k === 'akun' ? 'akun_id' : k === 'kategori' ? 'kategori_id' : 'anggota_id'
+  const transaksi = db.transaksi.filter((t) => t[kolom] === x.id).length
+  const transfer = k === 'akun' ? db.transfer.filter((t) => t.akun_asal_id === x.id || t.akun_tujuan_id === x.id).length : 0
+  return { transaksi, transfer, total: transaksi + transfer }
+}
 async function hapus(x) {
+  const p = pakai(x)
+  if (p.total) {
+    const bagian = [p.transaksi && `${p.transaksi} transaksi`, p.transfer && `${p.transfer} transfer`].filter(Boolean).join(' dan ')
+    notify(`"${x.nama}" tidak bisa dihapus karena masih dipakai di ${bagian}.`, 'err')
+    return
+  }
   if (!confirm(`Hapus "${x.nama}"?`)) return
   if (await safe(() => supabase.from(cur.value).delete().eq('id', x.id), 'Dihapus')) await loadAll()
 }
@@ -69,7 +83,7 @@ async function contoh() {
     <p v-if="!list.length" class="mute">Belum ada data.</p>
     <div v-for="x in list" :key="x.id" class="tx">
       <div class="grow">
-        <b>{{ x.nama }}</b>
+        <b>{{ x.nama }}</b><small v-if="pakai(x).total" class="mute"> · dipakai {{ pakai(x).total }}×</small>
         <span v-if="cur === 'akun'" class="mute small"> · saldo awal {{ rupiah(x.saldo_awal) }}</span>
         <span v-if="cur === 'kategori'" :class="['tag', x.tipe === 'pemasukan' ? 'in' : 'out']">{{ x.tipe }}</span>
       </div>

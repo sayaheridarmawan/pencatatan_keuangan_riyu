@@ -3,8 +3,13 @@ import { ref, reactive, computed } from 'vue'
 import { supabase } from '../supabase'
 import Combo from './Combo.vue'
 import RupiahInput from './RupiahInput.vue'
-import { db, loadAll, safe, rupiah, nama, tglIndo, today, terkumpul, saldoAkunId } from '../store'
+import Lampiran from './Lampiran.vue'
+import LampiranView from './LampiranView.vue'
+import { db, loadAll, safe, notify, pesanError, rupiah, nama, tglIndo, today, terkumpul, saldoAkunId } from '../store'
+import { unggah, hapusFile } from '../lampiran'
 
+const lamp = ref({ file: null, hapus: false })
+const lihatPath = ref('')
 const mode = ref('pindah') // 'pindah' = antar akun, 'sisih' = sisihkan ke target di akun yang sama
 const err = ref(''), gErr = ref(''), saving = ref(false)
 const t = reactive({ tanggal: today(), jumlah: '', asal: '', tujuan: '', target_id: '', catatan: '' })
@@ -27,16 +32,27 @@ async function simpanTransfer() {
     return
   }
   err.value = ''; saving.value = true
-  const ok = await safe(() => supabase.from('transfer').insert({
+  let pathBaru = null
+  if (lamp.value.file) {
+    try { pathBaru = await unggah(lamp.value.file.blob, lamp.value.file.ext, lamp.value.file.type) }
+    catch (e) { notify(pesanError(e), 'err'); saving.value = false; return }
+  }
+  const payload = {
     tanggal: t.tanggal, jumlah, akun_asal_id: t.asal, akun_tujuan_id: sisih ? t.asal : t.tujuan,
     target_id: t.target_id || null, catatan: t.catatan || null,
-  }), sisih ? 'Dana disisihkan ke target' : 'Transfer tersimpan')
+  }
+  if (pathBaru) payload.lampiran_path = pathBaru
+  const ok = await safe(() => supabase.from('transfer').insert(payload), sisih ? 'Dana disisihkan ke target' : 'Transfer tersimpan')
+  if (!ok && pathBaru) await hapusFile(pathBaru)
   saving.value = false
-  if (ok) { Object.assign(t, { jumlah: '', catatan: '', target_id: '' }); await loadAll() }
+  if (ok) { Object.assign(t, { jumlah: '', catatan: '', target_id: '' }); lamp.value = { file: null, hapus: false }; await loadAll() }
 }
 async function hapusTransfer(x) {
   if (!confirm('Hapus catatan ini?')) return
-  if (await safe(() => supabase.from('transfer').delete().eq('id', x.id), 'Catatan dihapus')) await loadAll()
+  if (await safe(() => supabase.from('transfer').delete().eq('id', x.id), 'Catatan dihapus')) {
+    await hapusFile(x.lampiran_path)
+    await loadAll()
+  }
 }
 async function simpanTarget() {
   if (!g.nama.trim() || !(g.target_jumlah > 0)) { gErr.value = 'Isi nama dan nominal target.'; return }
@@ -95,6 +111,7 @@ const label = (x) =>
       <Combo v-model="t.target_id" :options="db.target" :label="mode === 'sisih' ? 'Untuk target' : 'Untuk target (opsional)'" :placeholder="mode === 'sisih' ? 'Pilih target…' : 'Tanpa target'" />
       <label>Catatan<input v-model="t.catatan" placeholder="Opsional" maxlength="200" /></label>
     </div>
+    <div class="fields"><Lampiran v-model="lamp" @lihat="lihatPath = $event" /></div>
     <p v-if="saldoAsal !== null" class="mute small">Saldo tersedia: <b>{{ rupiah(saldoAsal) }}</b></p>
     <p v-if="err" class="err" role="alert">{{ err }}</p>
     <div class="actions"><button class="btn primary" :disabled="saving" @click="simpanTransfer">{{ saving ? 'Menyimpan…' : 'Simpan' }}</button></div>
@@ -109,7 +126,9 @@ const label = (x) =>
         <div class="mute small">{{ tglIndo(x.tanggal) }}<template v-if="x.target_id"> · {{ nama(db.target, x.target_id) }}</template><template v-if="x.catatan"> · {{ x.catatan }}</template></div>
       </div>
       <b>{{ rupiah(x.jumlah) }}</b>
+      <button v-if="x.lampiran_path" class="link" title="Lihat lampiran" aria-label="Lihat lampiran" @click="lihatPath = x.lampiran_path"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.1 12.2 20.3a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5" /></svg></button>
       <button class="link danger" @click="hapusTransfer(x)">Hapus</button>
     </div>
   </div>
+  <LampiranView v-if="lihatPath" :path="lihatPath" @tutup="lihatPath = ''" />
 </template>
