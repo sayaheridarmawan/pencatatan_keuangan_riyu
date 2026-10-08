@@ -98,3 +98,5 @@ label{display:flex;flex-direction:column;gap:.25rem;font-size:.85rem;color:var(-
 .lamp-thumb{width:52px;height:52px;border-radius:10px;object-fit:cover;flex:none}
 .lamp-thumb.pdf{display:grid;place-items:center;background:var(--line);color:var(--ink);font-weight:800;font-size:.8rem}
 .lamp-full{width:100%;height:auto;border-radius:14px;display:block;margin-bottom:.5rem}
+.hl-row{display:flex;align-items:center;gap:.5rem}
+.samar{letter-spacing:.12em}

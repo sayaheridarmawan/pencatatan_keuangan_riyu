@@ -6,6 +6,16 @@ import { db, rupiah, nama, tglIndo, today, terkumpul } from '../store'
 
 const bulan = ref(today().slice(0, 7))
 const detailId = ref(null)
+
+// Tampilkan / sembunyikan nominal utama (pilihan diingat di perangkat ini)
+const KUNCI = 'riyu_lihat_saldo'
+const bacaLihat = () => { try { return localStorage.getItem(KUNCI) !== '0' } catch { return true } }
+const lihat = ref(bacaLihat())
+function ganti() {
+  lihat.value = !lihat.value
+  try { localStorage.setItem(KUNCI, lihat.value ? '1' : '0') } catch { /* abaikan */ }
+}
+const uang = (n) => (lihat.value ? rupiah(n) : rupiah(n).replace(/\d/g, '*')) // jumlah bintang = jumlah angka
 const detail = computed(() => db.target.find((x) => x.id === detailId.value))
 const sum = (rows, tipe) => rows.filter((t) => t.tipe === tipe).reduce((s, t) => s + Number(t.jumlah), 0)
 const rows = computed(() => db.transaksi.filter((t) => t.tanggal.startsWith(bulan.value)))
@@ -23,7 +33,7 @@ const saldoAkun = computed(() =>
 const sapa = computed(() => {
   if (!db.transaksi.length) return 'Halo, aku Riyu! Yuk catat transaksi pertamamu.'
   if (keluar.value > masuk.value && masuk.value > 0) return 'Hmm, pengeluaran bulan ini lebih besar dari pemasukan. Yuk dicek lagi!'
-  if (masuk.value > keluar.value) return `Hebat! Bulan ini kamu menyisihkan ${rupiah(masuk.value - keluar.value)}.`
+  if (masuk.value > keluar.value) return `Hebat! Bulan ini kamu menyisihkan ${uang(masuk.value - keluar.value)}.`
   return 'Terus semangat mencatat ya!'
 })
 const totalSaldo = computed(() => saldoAkun.value.reduce((s, a) => s + a.saldo, 0))
@@ -40,16 +50,16 @@ const perKategori = computed(() => {
 <template>
   <section class="hero">
     <div class="hero-main">
-      <span class="hl">Total saldo keluarga</span>
-      <div class="big">{{ rupiah(totalSaldo) }}</div>
+      <div class="hl-row"><span class="hl">Total saldo keluarga</span><button type="button" class="icon-btn" :aria-label="lihat ? 'Sembunyikan nominal' : 'Tampilkan nominal'" :title="lihat ? 'Sembunyikan nominal' : 'Tampilkan nominal'" :aria-pressed="!lihat" @click="ganti"><svg v-if="lihat" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg><svg v-else viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.9 17.9A10.9 10.9 0 0 1 12 19c-6.5 0-10-7-10-7a18.5 18.5 0 0 1 5.1-5.9M9.9 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a18.6 18.6 0 0 1-2.2 3.2M1 1l22 22M9.9 9.9a3 3 0 0 0 4.2 4.2" /></svg></button></div>
+      <div class="big" :class="{ samar: !lihat }">{{ uang(totalSaldo) }}</div>
       <input type="month" v-model="bulan" aria-label="Bulan" />
     </div>
     <div class="riyu"><div class="bubble">{{ sapa }}</div><Mascot :size="84" /></div>
   </section>
 
   <div class="grid2">
-    <div class="card"><span class="mute">Pemasukan bulan ini</span><div class="num in">{{ rupiah(masuk) }}</div></div>
-    <div class="card"><span class="mute">Pengeluaran bulan ini</span><div class="num out">{{ rupiah(keluar) }}</div></div>
+    <div class="card"><span class="mute">Pemasukan bulan ini</span><div class="num in" :class="{ samar: !lihat }">{{ uang(masuk) }}</div></div>
+    <div class="card"><span class="mute">Pengeluaran bulan ini</span><div class="num out" :class="{ samar: !lihat }">{{ uang(keluar) }}</div></div>
   </div>
 
   <div class="grid2">
